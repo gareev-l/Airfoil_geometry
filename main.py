@@ -7,6 +7,7 @@ from scipy import interpolate
 
 Ref_prof = open('Reference_profiles.txt', 'r')
 List_ref_prof = []
+Ref_prof.readline()
 for x in Ref_prof:
     List_ref_prof.append(x)
 Ref_prof.close()
@@ -167,7 +168,7 @@ class Aero_surface:
         else:
             P_Cloud = []
             for i in range(self.total_profiles):
-                Airfoil_cur = Airfoil(i + 1)  # создаем экземпляр профиля i
+                Airfoil_cur = Airfoil(i)  # создаем экземпляр профиля i
                 cloud_2d = Airfoil_cur.point_cloud(self.N)  # Создаем облако точек соответств этому профилю
                 for j in range(self.N):
                     cloud_2d[j].append(Airfoil_cur.z_0())  # добавляем каждой точке коорд z, соотв опорному сечению
@@ -201,7 +202,7 @@ class Aero_surface:
 # print(first.beta())
 # print(first.point_cloud(20))
 
-surface_one = Aero_surface(len(List_ref_prof) - 1, 29)
+surface_one = Aero_surface(len(List_ref_prof), 29)
 b = surface_one.point_cloud_total([5, 7, 20, 50])
 print("len(b) ", len(b))
 xx = []
