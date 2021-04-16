@@ -17,7 +17,7 @@ Ref_prof.close()
 # со сдвигом shift
 
 
-def rot(a, alpha, beta, gamma, rot_center, shift):
+def rot_point(a, alpha, beta, gamma, rot_center, shift):
     alpha, beta, gamma = np.radians(alpha), np.radians(beta), np.radians(gamma)
     M_alpha = np.array([[np.cos(alpha), -np.sin(alpha), 0], [np.sin(alpha), np.cos(alpha), 0], [0, 0, 1]])
     M_beta = np.array([[np.cos(beta), 0, -np.sin(beta)], [0, 1, 0], [np.sin(beta), 0, np.cos(beta)]])
@@ -32,6 +32,7 @@ def rot(a, alpha, beta, gamma, rot_center, shift):
 def cubic_spline(s_points, y_points, s_new):
     tck = interpolate.splrep(s_points, y_points)
     return interpolate.splev(s_new, tck)
+
 
 # Вот тут какой-то косяк - параметризация получается неравномерной!
 def s_i(i, n, m_i):
@@ -172,10 +173,10 @@ class Aero_surface:
                 cloud_2d = Airfoil_cur.point_cloud(self.N)  # Создаем облако точек соответств этому профилю
                 for j in range(self.N):
                     cloud_2d[j].append(Airfoil_cur.z_0())  # добавляем каждой точке коорд z, соотв опорному сечению
-                    cloud_2d[j] = rot(cloud_2d[j],
-                                      Airfoil_cur.phi(), Airfoil_cur.beta(), Airfoil_cur.psi(),
-                                      [Airfoil_cur.x_0(), Airfoil_cur.y_0(), Airfoil_cur.z_0()],
-                                      [0, 0, 0])  # поворачиваем все точки опорного профиля на заданные углы
+                    cloud_2d[j] = list(rot_point(cloud_2d[j],
+                                                 Airfoil_cur.phi(), Airfoil_cur.beta(), Airfoil_cur.psi(),
+                                                 [Airfoil_cur.x_0(), Airfoil_cur.y_0(), Airfoil_cur.z_0()],
+                                                 [0, 0, 0]))  # поворачиваем все точки опорного профиля на заданные углы
                 P_Cloud.append(cloud_2d)
 
             Cloud_new = []
@@ -196,15 +197,43 @@ class Aero_surface:
         return P_Cloud
 
 
+class Propeller:
+    def __init__(self, n_blades, n_levels, ini_blade):
+        self.n_blades = n_blades  # Number of blades in one surface
+        self.n_levels = n_levels  # Number of propeller surfaces
+        self.ini_blade = ini_blade  # Point cloud initial
+
+    def blade_multiply(self):
+        for level in range(1, n_levels + 1):
+            propeller_lvl = []
+            angles = np.array(np.arange(0, 360, 360 / self.n_blades))
+            for angle in angles:
+                new_blade = []
+                for section in self.ini_blade:
+                    new_section = []
+                    for point in section:
+                        new_point = rot_point(point, 0, angle, 0, [0, 0, 0], [0, 0 + (level-1)*20, 0])
+                        new_section.append(new_point)
+                    new_blade.append(new_section)
+                propeller_lvl.append(new_blade)
+            propeller_lvl += propeller_lvl
+        return propeller_lvl
+
+
 # first = Airfoil(4)
 # print(first.info())
 # print(first.name_profile())
 # print(first.beta())
 # print(first.point_cloud(20))
 
-surface_one = Aero_surface(len(List_ref_prof), 29)
-b = surface_one.point_cloud_total([5, 7, 20, 50])
-print("len(b) ", len(b))
+blade = Aero_surface(len(List_ref_prof), 29)
+a = blade.point_cloud_total([5, 7, 20, 50])
+blade_lvl = Propeller(4, 1, a)
+# print(a)
+# print(type(a[0][0]))
+b = blade_lvl.blade_multiply()
+
+# print("len(a) ", len(a))
 xx = []
 yy = []
 zz = []
@@ -215,19 +244,12 @@ output_list = open('output_list.txt', 'w')
 
 for i in range(len(b)):
     for j in range(len(b[i])):
-        print(b[i][j][0], b[i][j][1], b[i][j][2], file=output_list, sep='\t')
+        for k in range(len(b[i][j])):
+            print(b[i][j][k][0], b[i][j][k][1], b[i][j][k][2], file=output_list, sep='\t')
 
-#         buf = rot(([b[i][j][0], b[i][j][1], b[i][j][2]]), 0.0005 * i, 0.0005 * i, 0.0000 * i, ([0, 0, 0]),
-#                   [0.000 * i, 0.00 * i, 0])
-#         b[i][j][0] = buf[0]
-#         b[i][j][1] = buf[1]
-#         b[i][j][2] = buf[2]
-#
-#         buf = []
-
-        xx.append(b[i][j][0])
-        yy.append(b[i][j][1])
-        zz.append(b[i][j][2])
+            xx.append(b[i][j][k][0])
+            yy.append(b[i][j][k][1])
+            zz.append(b[i][j][k][2])
 
 output_list.close()
 
@@ -239,8 +261,7 @@ ax.set_aspect('auto')
 ax.set_xlabel('X Label')
 ax.set_ylabel('Y Label')
 ax.set_zlabel('Z Label')
-plt.xlim([-7, 7])
-plt.ylim([-7, 7])
-
+plt.xlim([-15, 15])
+plt.ylim([-15, 15])
 
 plt.show()
