@@ -29,12 +29,11 @@ def rot_point(a, alpha, beta, gamma, rot_center, shift):
 # Три функции реализующие интерполяцию точек кубическими сплайнами
 
 
-def cubic_spline(s_points, y_points, s_new):
-    tck = interpolate.splrep(s_points, y_points)
+def point_spline(s_points, y_points, s_new, k_i):
+    tck = interpolate.splrep(s_points, y_points, k=k_i)
     return interpolate.splev(s_new, tck)
 
 
-# Вот тут какой-то косяк - параметризация получается неравномерной!
 def s_i(i, n, m_i):
     a = list(np.linspace(i / (n - 1), (i + 1) / (n - 1), m_i + 2))
     del a[0]
@@ -56,9 +55,9 @@ def spline_list(list_of_ref_prof, s_cur):
             y_list.append(list_of_ref_prof[i][j][1])
             z_list.append(list_of_ref_prof[i][j][2])
 
-        new_points.append([float(cubic_spline(s_0, x_list, s_cur)),
-                           float(cubic_spline(s_0, y_list, s_cur)),
-                           float(cubic_spline(s_0, z_list, s_cur))])
+        new_points.append([float(point_spline(s_0, x_list, s_cur, 3)),
+                           float(point_spline(s_0, y_list, s_cur, 3)),
+                           float(point_spline(s_0, z_list, s_cur, 1))])
     return new_points
 
 
@@ -204,7 +203,8 @@ class Propeller:
         self.ini_blade = ini_blade  # Point cloud initial
 
     def blade_multiply(self):
-        for level in range(1, n_levels + 1):
+        result = []
+        for level in range(1, self.n_levels + 1):
             propeller_lvl = []
             angles = np.array(np.arange(0, 360, 360 / self.n_blades))
             for angle in angles:
@@ -212,12 +212,12 @@ class Propeller:
                 for section in self.ini_blade:
                     new_section = []
                     for point in section:
-                        new_point = rot_point(point, 0, angle, 0, [0, 0, 0], [0, 0 + (level-1)*20, 0])
+                        new_point = rot_point(point, (level-1)*180, angle, 0, [0, 0, 0], [0, 0 + (level-1)*10, 0])
                         new_section.append(new_point)
                     new_blade.append(new_section)
                 propeller_lvl.append(new_blade)
-            propeller_lvl += propeller_lvl
-        return propeller_lvl
+            result += propeller_lvl
+        return result
 
 
 # first = Airfoil(4)
@@ -227,17 +227,16 @@ class Propeller:
 # print(first.point_cloud(20))
 
 blade = Aero_surface(len(List_ref_prof), 29)
-a = blade.point_cloud_total([5, 7, 20, 50])
-blade_lvl = Propeller(4, 1, a)
-# print(a)
-# print(type(a[0][0]))
+a = blade.point_cloud_total([1, 3, 10, 25])
+blade_lvl = Propeller(3, 2, a)
+
 b = blade_lvl.blade_multiply()
 
-# print("len(a) ", len(a))
+# print("len(b) ", len(b))
 xx = []
 yy = []
 zz = []
-buf = []
+#buf = []
 
 # ---Recording to file---#
 output_list = open('output_list.txt', 'w')
