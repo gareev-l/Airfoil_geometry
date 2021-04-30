@@ -5,7 +5,7 @@ import numpy as np
 import math
 from scipy import interpolate
 
-Ref_prof = open('Reference_profiles.txt', 'r')
+Ref_prof = open('Reference_profiles_1.txt', 'r')
 List_ref_prof = []
 Ref_prof.readline()
 for x in Ref_prof:
@@ -17,13 +17,13 @@ Ref_prof.close()
 # со сдвигом shift
 
 
-def rot_point(a, alpha, beta, gamma, rot_center, shift):
+def rot_point(point_coord, alpha, beta, gamma, rot_center, shift):
     alpha, beta, gamma = np.radians(alpha), np.radians(beta), np.radians(gamma)
     M_alpha = np.array([[np.cos(alpha), -np.sin(alpha), 0], [np.sin(alpha), np.cos(alpha), 0], [0, 0, 1]])
     M_beta = np.array([[np.cos(beta), 0, -np.sin(beta)], [0, 1, 0], [np.sin(beta), 0, np.cos(beta)]])
     M_gamma = np.array([[1, 0, 0], [0, np.cos(gamma), -np.sin(gamma)], [0, np.sin(gamma), np.cos(gamma)]])
     return np.asarray(shift) + np.asarray(rot_center) + M_alpha.dot(
-        M_beta.dot(M_gamma.dot(np.asarray(a) - np.asarray(rot_center))))
+        M_beta.dot(M_gamma.dot(np.asarray(point_coord) - np.asarray(rot_center))))
 
 
 # Три функции реализующие интерполяцию точек кубическими сплайнами
@@ -61,6 +61,57 @@ def spline_list(list_of_ref_prof, s_cur):
     return new_points
 
 
+def naca(name_profile, up_or_down, x):
+    L = int(name_profile[5:6])
+    if name_profile[6:8] == '30':
+        m = 0.2025
+        k_1 = 15.957
+
+        ###---Y_coordinate_of_camber_line_and_its_derivative---###
+        y_c = 0.
+        dy_c = 0.
+        if 0 <= x < m:
+            y_c = (k_1 / 6) * (pow(x, 3) - 3 * m * pow(x, 2) +
+                               pow(m, 2) * (3 - m) * x)
+            dy_c = (k_1 / 6) * (3 * pow(x, 2) - 6 * m * x +
+                                pow(m, 2) * (3 - m))
+        elif m <= x <= 1:
+            y_c = (k_1 * pow(m, 3) / 6) * (1 - x)
+            dy_c = -(k_1 * pow(m, 3) / 6)
+        else:
+            print('Error, x out of range')
+        y_c = (L / 2) * y_c
+        dy_c = (L / 2) * dy_c
+
+        ###---Y_coordinate_of_thickness_line---###
+        t = int(name_profile[9:11]) / 100
+        a_0 = 0.2969
+        a_1 = -0.126
+        a_2 = -0.3516
+        a_3 = 0.2843
+        a_4 = -0.1015
+        y_t = (t / 0.2) * (a_0 * pow(x, 0.5) + a_1 * x +
+                           a_2 * pow(x, 2) + a_3 * pow(x, 3) +
+                           a_4 * pow(x, 4))
+
+        ###---Y_coordinate---###
+        theta = math.atan(dy_c)
+        if up_or_down == 'up':
+            x_u = x - y_t * math.sin(theta)
+            y_u = y_c + y_t * math.cos(theta)
+            return [x_u, y_u]
+        elif up_or_down == 'down':
+            x_d = x + y_t * math.sin(theta)
+            y_d = y_c - y_t * math.cos(theta)
+            return [x_d, y_d]
+        else:
+            print('Error! No "up" or "down" is written')
+            return 0
+    else:
+        print('We need another coefficients')
+        return 0
+
+
 class Airfoil:
     def __init__(self, order_number_of_profile):
         self.num_profile = order_number_of_profile
@@ -91,69 +142,19 @@ class Airfoil:
     def z_0(self):
         return float(self.info()[8])
 
-    def point_cloud(self, k):
-        n = k // 2 + 1  # always even number of points
+    def point_cloud(self, n):
+        k = (n - 1) // 2  # n - always odd number of points
         cloud = []
-        x_coord = np.linspace(0, 1, n)
+        x_coord = np.linspace(0, 1, k + 2)
         if self.name_profile()[0:4] == 'NACA':
-            for i in range(n):
-                cloud.append(self.naca('up', pow(x_coord[i], 2)))  # x coordinate to the power of 2, to move points
-                # closer the front edge
-            for i in range(n - 1, 0, -1):
-                cloud.append(self.naca('down', pow(x_coord[i], 2)))  # same
+            for i in range(k, 0, -1):
+                cloud.append(naca(self.name_profile(), 'down', pow(x_coord[i], 1)))  # x coordinate to the power of 2,
+                # to move points closer to the front edge
+            for i in range(1, k+2):
+                cloud.append(naca(self.name_profile(), 'up', pow(x_coord[i], 1)))  # same
             return cloud
         else:
             print('Error, not NACA airfoil profile')
-            return 0
-
-    def naca(self, up_or_down, x):
-        L = int(self.name_profile()[5:6])
-        if self.name_profile()[6:8] == '30':
-            m = 0.2025
-            k_1 = 15.957
-
-            ###---Y_coordinate_of_camber_line_and_its_derivative---###
-            y_c = 0.
-            dy_c = 0.
-            if 0 <= x < m:
-                y_c = (k_1 / 6) * (pow(x, 3) - 3 * m * pow(x, 2) +
-                                   pow(m, 2) * (3 - m) * x)
-                dy_c = (k_1 / 6) * (3 * pow(x, 2) - 6 * m * x +
-                                    pow(m, 2) * (3 - m))
-            elif m <= x <= 1:
-                y_c = (k_1 * pow(m, 3) / 6) * (1 - x)
-                dy_c = -(k_1 * pow(m, 3) / 6)
-            else:
-                print('Error, x out of range')
-            y_c = (L / 2) * y_c
-            dy_c = (L / 2) * dy_c
-
-            ###---Y_coordinate_of_thickness_line---###
-            t = int(self.name_profile()[9:11]) / 100
-            a_0 = 0.2969
-            a_1 = -0.126
-            a_2 = -0.3516
-            a_3 = 0.2843
-            a_4 = -0.1015
-            y_t = (t / 0.2) * (a_0 * pow(x, 0.5) + a_1 * x +
-                               a_2 * pow(x, 2) + a_3 * pow(x, 3) +
-                               a_4 * pow(x, 4))
-
-            ###---Y_coordinate---###
-            theta = math.atan(dy_c)
-            if up_or_down == 'up':
-                x_u = x - y_t * math.sin(theta)
-                y_u = y_c + y_t * math.cos(theta)
-                return [x_u, y_u]
-            elif up_or_down == 'down':
-                x_d = x + y_t * math.sin(theta)
-                y_d = y_c - y_t * math.cos(theta)
-                return [x_d, y_d]
-            else:
-                print('Error! No "up" or "down" is written')
-                return 0
-        else:
-            print('We need another coefficients')
             return 0
 
 
@@ -212,7 +213,8 @@ class Propeller:
                 for section in self.ini_blade:
                     new_section = []
                     for point in section:
-                        new_point = rot_point(point, (level-1)*180, angle, 0, [0, 0, 0], [0, 0 + (level-1)*10, 0])
+                        new_point = rot_point(point, (level - 1) * 180, angle, 0, [0, 0, 0],
+                                              [0, 0 + (level - 1) * 10, 0])
                         new_section.append(new_point)
                     new_blade.append(new_section)
                 propeller_lvl.append(new_blade)
@@ -226,8 +228,8 @@ class Propeller:
 # print(first.beta())
 # print(first.point_cloud(20))
 
-blade = Aero_surface(len(List_ref_prof), 29)
-a = blade.point_cloud_total([1, 3, 10, 25])
+blade = Aero_surface(len(List_ref_prof), 31)
+a = blade.point_cloud_total([0, 1, 4, 12])
 blade_lvl = Propeller(3, 2, a)
 
 b = blade_lvl.blade_multiply()
@@ -236,7 +238,7 @@ b = blade_lvl.blade_multiply()
 xx = []
 yy = []
 zz = []
-#buf = []
+# buf = []
 
 # ---Recording to file---#
 output_list = open('output_list.txt', 'w')
