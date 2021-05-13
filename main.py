@@ -148,10 +148,10 @@ class Airfoil:
         x_coord = np.linspace(0, 1, k + 2)
         if self.name_profile()[0:4] == 'NACA':
             for i in range(k, 0, -1):
-                cloud.append(naca(self.name_profile(), 'down', pow(x_coord[i], 1)))  # x coordinate to the power of 2,
+                cloud.append(naca(self.name_profile(), 'down', (1-math.cos(x_coord[i] * math.pi)) / 2))  # x coordinate to the power of 2,
                 # to move points closer to the front edge
             for i in range(1, k+2):
-                cloud.append(naca(self.name_profile(), 'up', pow(x_coord[i], 1)))  # same
+                cloud.append(naca(self.name_profile(), 'up', (1-math.cos(x_coord[i] * math.pi)) / 2))  # same
             return cloud
         else:
             print('Error, not NACA airfoil profile')
@@ -213,8 +213,14 @@ class Propeller:
                 for section in self.ini_blade:
                     new_section = []
                     for point in section:
-                        new_point = rot_point(point, (level - 1) * 180, angle, 0, [0, 0, 0],
-                                              [0, 0 + (level - 1) * 10, 0])
+                        if level % 2 == 0:
+                            point = [-point[0], point[1], point[2]]
+                            new_point = rot_point(point, 0, angle, 0, [0, 0, 0],
+                                                  [0, (2 - level) * 5, 0])
+                        else:
+                            point=point
+                            new_point = rot_point(point, 0, angle, 0, [0, 0, 0],
+                                              [0, (2-level) * 5, 0])
                         new_section.append(new_point)
                     new_blade.append(new_section)
                 propeller_lvl.append(new_blade)
@@ -228,7 +234,7 @@ class Propeller:
 # print(first.beta())
 # print(first.point_cloud(20))
 
-blade = Aero_surface(len(List_ref_prof), 31)
+blade = Aero_surface(len(List_ref_prof), 71)
 a = blade.point_cloud_total([0, 1, 4, 12])
 blade_lvl = Propeller(3, 2, a)
 
@@ -263,6 +269,6 @@ ax.set_xlabel('X Label')
 ax.set_ylabel('Y Label')
 ax.set_zlabel('Z Label')
 plt.xlim([-15, 15])
-plt.ylim([-15, 15])
+plt.ylim([-10, 20])
 
 plt.show()
