@@ -1,11 +1,9 @@
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-
 import numpy as np
 import math
 from scipy import interpolate
 
-Ref_prof = open('Reference_profiles_1.txt', 'r')
+Ref_prof = open('Reference_profiles.txt', 'r')
 List_ref_prof = []
 Ref_prof.readline()
 for x in Ref_prof:
@@ -20,7 +18,7 @@ Ref_prof.close()
 def rot_point(point_coord, alpha, beta, gamma, rot_center, shift):
     alpha, beta, gamma = np.radians(alpha), np.radians(beta), np.radians(gamma)
     M_alpha = np.array([[np.cos(alpha), -np.sin(alpha), 0], [np.sin(alpha), np.cos(alpha), 0], [0, 0, 1]])
-    M_beta = np.array([[np.cos(beta), 0, -np.sin(beta)], [0, 1, 0], [np.sin(beta), 0, np.cos(beta)]])
+    M_beta = np.array([[np.cos(beta), 0, np.sin(beta)], [0, 1, 0], [-np.sin(beta), 0, np.cos(beta)]])
     M_gamma = np.array([[1, 0, 0], [0, np.cos(gamma), -np.sin(gamma)], [0, np.sin(gamma), np.cos(gamma)]])
     return np.asarray(shift) + np.asarray(rot_center) + M_alpha.dot(
         M_beta.dot(M_gamma.dot(np.asarray(point_coord) - np.asarray(rot_center))))
@@ -148,7 +146,7 @@ class Airfoil:
         x_coord = np.linspace(0, 1, k + 2)
         if self.name_profile()[0:4] == 'NACA':
             for i in range(k, 0, -1):
-                cloud.append(naca(self.name_profile(), 'down', (1-math.cos(x_coord[i] * math.pi)) / 2))  # x coordinate to the power of 2,
+                cloud.append(naca(self.name_profile(), 'down', (1-math.cos(x_coord[i] * math.pi)) / 2))  # cosine distribution
                 # to move points closer to the front edge
             for i in range(1, k+2):
                 cloud.append(naca(self.name_profile(), 'up', (1-math.cos(x_coord[i] * math.pi)) / 2))  # same
@@ -184,8 +182,6 @@ class Aero_surface:
                 for k in range(m[i]):
                     Cloud_new.append(spline_list(P_Cloud, s_i(i, self.total_profiles, m[i])[k]))  # создаем все точки
                     # промежуточных сечений
-
-                    # print("##1 ", s_i(i, self.total_profiles, m[i])[k])
 
             step = 1
             for i in range(0, self.total_profiles - 1):
@@ -228,23 +224,15 @@ class Propeller:
         return result
 
 
-# first = Airfoil(4)
-# print(first.info())
-# print(first.name_profile())
-# print(first.beta())
-# print(first.point_cloud(20))
-
-blade = Aero_surface(len(List_ref_prof), 71)
-a = blade.point_cloud_total([0, 1, 4, 12])
+blade = Aero_surface(len(List_ref_prof), 25)
+a = blade.point_cloud_total([1, 3, 9, 25])
 blade_lvl = Propeller(3, 2, a)
 
 b = blade_lvl.blade_multiply()
 
-# print("len(b) ", len(b))
 xx = []
 yy = []
 zz = []
-# buf = []
 
 # ---Recording to file---#
 output_list = open('output_list.txt', 'w')
